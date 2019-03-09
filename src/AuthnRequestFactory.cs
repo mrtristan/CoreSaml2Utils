@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Security.Cryptography.Xml;
 using System.Text;
 using System.Xml;
 
@@ -72,6 +73,57 @@ namespace CoreSaml2Utils
 
             var queryStringSeparator = samlEndpoint.Contains("?") ? "&" : "?";
             return $"{samlEndpoint}{queryStringSeparator}{urlParams}";
+        }
+
+        public string GetSignedPostRequest()
+        {
+            var docString = BuildRequestXml();
+
+            // approach sourced from
+            // https://docs.microsoft.com/en-us/dotnet/standard/security/how-to-sign-xml-documents-with-digital-signatures
+            // https://stackoverflow.com/a/29049450/1301349
+
+            var rsaCryptoProvider = ConstructCryptoProvider();
+
+            var xmlDoc = new XmlDocument
+            {
+                PreserveWhitespace = true
+            };
+            xmlDoc.LoadXml(docString);
+
+            var signedXml = new SignedXml(xmlDoc)
+            {
+                SigningKey = rsaCryptoProvider
+            };
+            signedXml.SignedInfo.SignatureMethod = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+
+            var signatureTargetReference = new Reference()
+            {
+                Uri = ""
+            };
+
+            signatureTargetReference.AddTransform(new XmlDsigEnvelopedSignatureTransform());
+            signatureTargetReference.AddTransform(new XmlDsigExcC14NTransform());
+
+            signedXml.AddReference(signatureTargetReference);
+
+            var keyInfo = new KeyInfo();
+            keyInfo.AddClause(new KeyInfoX509Data(_cert));
+            signedXml.KeyInfo = keyInfo;
+
+            signedXml.ComputeSignature();
+
+            var signature = signedXml.GetXml();
+
+            xmlDoc.DocumentElement.AppendChild(xmlDoc.ImportNode(signature, true));
+
+            using (var stringWriter = new StringWriter())
+            {
+                xmlDoc.Save(stringWriter);
+                docString = stringWriter.ToString();
+            }
+
+            return Base64Encode(docString);
         }
 
         private RSACryptoServiceProvider ConstructCryptoProvider()
