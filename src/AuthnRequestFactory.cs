@@ -12,12 +12,12 @@ namespace CoreSaml2Utils
 {
     public class AuthnRequestFactory
     {
-        public string _id;
-
         private readonly string _issuer;
         private readonly string _assertionConsumerServiceUrl;
         private readonly string _requestDestination;
         private readonly X509Certificate2 _cert;
+
+        private readonly string _id;
 
         public AuthnRequestFactory(
                             string issuer,
@@ -28,24 +28,18 @@ namespace CoreSaml2Utils
         {
             RSAPKCS1SHA256SignatureDescription.Init(); //init the SHA256 crypto provider (for needed for .NET 4.0 and lower)
 
-            _id = $"_{Guid.NewGuid().ToString()}";
-
             _issuer = issuer;
             _assertionConsumerServiceUrl = assertionConsumerServiceUrl;
             _requestDestination = requestDestination;
             _cert = cert;
-        }
 
-        public string GetUnSignedRequest()
-        {
-            var docString = BuildRequestXml();
-            return Base64Encode(docString);
+            _id = $"_{Guid.NewGuid().ToString()}";
         }
 
         //returns the URL you should redirect your users to (i.e. your SAML-provider login URL with the Base64-ed request in the querystring
         public string GetRedirectUrl(string samlEndpoint, string relayState, bool sign)
         {
-            var request = GetUnSignedRequest();
+            var request = GetRequestBody(sign: false); // signing happens differently when redirecting
 
             //http://docs.oasis-open.org/security/saml/v2.0/saml-core-2.0-os.pdf
             //this exact format matters per 3.4.4.1 of https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
@@ -75,71 +69,58 @@ namespace CoreSaml2Utils
             return $"{samlEndpoint}{queryStringSeparator}{urlParams}";
         }
 
-        public string GetSignedPostRequest()
+        public string GetRequestBody(bool sign)
         {
             var docString = BuildRequestXml();
 
-            // approach sourced from
-            // https://docs.microsoft.com/en-us/dotnet/standard/security/how-to-sign-xml-documents-with-digital-signatures
-            // https://stackoverflow.com/a/29049450/1301349
-
-            var rsaCryptoProvider = ConstructCryptoProvider();
-
-            var xmlDoc = new XmlDocument
+            if (sign)
             {
-                PreserveWhitespace = true
-            };
-            xmlDoc.LoadXml(docString);
+                // approach sourced from
+                // https://docs.microsoft.com/en-us/dotnet/standard/security/how-to-sign-xml-documents-with-digital-signatures
+                // https://stackoverflow.com/a/29049450/1301349
 
-            var signedXml = new SignedXml(xmlDoc)
-            {
-                SigningKey = rsaCryptoProvider
-            };
-            signedXml.SignedInfo.SignatureMethod = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
+                var rsaCryptoProvider = ConstructCryptoProvider();
 
-            var signatureTargetReference = new Reference()
-            {
-                Uri = ""
-            };
+                var xmlDoc = new XmlDocument
+                {
+                    PreserveWhitespace = true
+                };
+                xmlDoc.LoadXml(docString);
 
-            signatureTargetReference.AddTransform(new XmlDsigEnvelopedSignatureTransform());
-            signatureTargetReference.AddTransform(new XmlDsigExcC14NTransform());
+                var signedXml = new SignedXml(xmlDoc)
+                {
+                    SigningKey = rsaCryptoProvider
+                };
+                signedXml.SignedInfo.SignatureMethod = "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256";
 
-            signedXml.AddReference(signatureTargetReference);
+                var signatureTargetReference = new Reference()
+                {
+                    Uri = ""
+                };
 
-            var keyInfo = new KeyInfo();
-            keyInfo.AddClause(new KeyInfoX509Data(_cert));
-            signedXml.KeyInfo = keyInfo;
+                signatureTargetReference.AddTransform(new XmlDsigEnvelopedSignatureTransform());
+                signatureTargetReference.AddTransform(new XmlDsigExcC14NTransform());
 
-            signedXml.ComputeSignature();
+                signedXml.AddReference(signatureTargetReference);
 
-            var signature = signedXml.GetXml();
+                var keyInfo = new KeyInfo();
+                keyInfo.AddClause(new KeyInfoX509Data(_cert));
+                signedXml.KeyInfo = keyInfo;
 
-            xmlDoc.DocumentElement.AppendChild(xmlDoc.ImportNode(signature, true));
+                signedXml.ComputeSignature();
 
-            using (var stringWriter = new StringWriter())
-            {
-                xmlDoc.Save(stringWriter);
-                docString = stringWriter.ToString();
+                var signature = signedXml.GetXml();
+
+                xmlDoc.DocumentElement.AppendChild(xmlDoc.ImportNode(signature, true));
+
+                using (var stringWriter = new StringWriter())
+                {
+                    xmlDoc.Save(stringWriter);
+                    docString = stringWriter.ToString();
+                }
             }
 
             return Base64Encode(docString);
-        }
-
-        private RSACryptoServiceProvider ConstructCryptoProvider()
-        {
-            if (_cert == null)
-            {
-                throw new ArgumentNullException("Missing certificate");
-            }
-
-            var rsaCryptoProvider = new RSACryptoServiceProvider(new CspParameters(24 /* PROV_RSA_AES */))
-            {
-                PersistKeyInCsp = false
-            };
-            rsaCryptoProvider.ImportParameters(RSAHelper.GetParametersFromXmlString(RSAHelper.ToXmlString((RSA)_cert.PrivateKey, true)));
-
-            return rsaCryptoProvider;
         }
 
         private string BuildRequestXml()
@@ -195,6 +176,22 @@ namespace CoreSaml2Utils
             writer.Write(input);
             writer.Close();
             return Convert.ToBase64String(memoryStream.GetBuffer(), 0, (int)memoryStream.Length, Base64FormattingOptions.None);
+        }
+
+        private RSACryptoServiceProvider ConstructCryptoProvider()
+        {
+            if (_cert == null)
+            {
+                throw new ArgumentNullException("Missing certificate");
+            }
+
+            var rsaCryptoProvider = new RSACryptoServiceProvider(new CspParameters(24 /* PROV_RSA_AES */))
+            {
+                PersistKeyInCsp = false
+            };
+            rsaCryptoProvider.ImportParameters(RSAHelper.GetParametersFromXmlString(RSAHelper.ToXmlString((RSA)_cert.PrivateKey, true)));
+
+            return rsaCryptoProvider;
         }
     }
 }
