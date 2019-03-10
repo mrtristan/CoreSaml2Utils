@@ -35,12 +35,6 @@ namespace CoreSaml2Utils
             _id = $"_{Guid.NewGuid().ToString()}";
         }
 
-        public string GetUnSignedRequest()
-        {
-            var docString = BuildRequestXml();
-            return Base64Encode(docString);
-        }
-
         //returns the URL you should redirect your users to (i.e. your SAML-provider login URL with the Base64-ed request in the querystring
         public string GetRedirectUrl(string samlEndpoint, string relayState, bool sign)
         {
@@ -74,20 +68,10 @@ namespace CoreSaml2Utils
             return $"{samlEndpoint}{queryStringSeparator}{urlParams}";
         }
 
-        private RSACryptoServiceProvider ConstructCryptoProvider()
+        private string GetUnSignedRequest()
         {
-            if (_cert == null)
-            {
-                throw new ArgumentNullException("Missing certificate");
-            }
-
-            var rsaCryptoProvider = new RSACryptoServiceProvider(new CspParameters(24 /* PROV_RSA_AES */))
-            {
-                PersistKeyInCsp = false
-            };
-            rsaCryptoProvider.ImportParameters(RSAHelper.GetParametersFromXmlString(RSAHelper.ToXmlString((RSA)_cert.PrivateKey, true)));
-
-            return rsaCryptoProvider;
+            var docString = BuildRequestXml();
+            return Base64Encode(docString);
         }
 
         private string BuildRequestXml()
@@ -143,6 +127,22 @@ namespace CoreSaml2Utils
             writer.Write(input);
             writer.Close();
             return Convert.ToBase64String(memoryStream.GetBuffer(), 0, (int)memoryStream.Length, Base64FormattingOptions.None);
+        }
+
+        private RSACryptoServiceProvider ConstructCryptoProvider()
+        {
+            if (_cert == null)
+            {
+                throw new ArgumentNullException("Missing certificate");
+            }
+
+            var rsaCryptoProvider = new RSACryptoServiceProvider(new CspParameters(24 /* PROV_RSA_AES */))
+            {
+                PersistKeyInCsp = false
+            };
+            rsaCryptoProvider.ImportParameters(RSAHelper.GetParametersFromXmlString(RSAHelper.ToXmlString((RSA)_cert.PrivateKey, true)));
+
+            return rsaCryptoProvider;
         }
     }
 }
