@@ -11,9 +11,9 @@ namespace CoreSaml2Utils.Utilities
     {
         public static RSAParameters GetParametersFromXmlString(string xmlString)
         {
-            RSAParameters parameters = new RSAParameters();
+            var parameters = new RSAParameters();
 
-            XmlDocument xmlDoc = new XmlDocument();
+            var xmlDoc = new XmlDocument();
             xmlDoc.LoadXml(xmlString);
 
             if (xmlDoc.DocumentElement.Name.Equals("RSAKeyValue"))

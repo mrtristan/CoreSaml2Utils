@@ -11,12 +11,12 @@ namespace CoreSaml2Utils
 {
     public class AuthnRequestFactory
     {
-        public string _id;
-
         private readonly string _issuer;
         private readonly string _assertionConsumerServiceUrl;
         private readonly string _requestDestination;
         private readonly X509Certificate2 _cert;
+
+        private readonly string _id;
 
         public AuthnRequestFactory(
                             string issuer,
@@ -27,12 +27,12 @@ namespace CoreSaml2Utils
         {
             RSAPKCS1SHA256SignatureDescription.Init(); //init the SHA256 crypto provider (for needed for .NET 4.0 and lower)
 
-            _id = $"_{Guid.NewGuid().ToString()}";
-
             _issuer = issuer;
             _assertionConsumerServiceUrl = assertionConsumerServiceUrl;
             _requestDestination = requestDestination;
             _cert = cert;
+
+            _id = $"_{Guid.NewGuid().ToString()}";
         }
 
         public string GetUnSignedRequest()

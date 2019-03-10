@@ -32,9 +32,20 @@ namespace CoreSaml2Utils
             _certificate = CertificateUtilities.LoadCertificate(certificateStr);
         }
 
-        public string Xml => _xmlDoc.OuterXml;
+        /// <summary>
+        /// Loads an XmlDocument for querying and returns true if signature reference, expiration, and audience validity checks pass.
+        /// </summary>
+        public bool LoadXmlFromBase64(string response, string expectedAudience)
+        {
+            var enc = new UTF8Encoding();
+            var decoded = enc.GetString(Convert.FromBase64String(response));
+            return LoadXml(decoded, expectedAudience);
+        }
 
-        public void LoadXml(string xml)
+        /// <summary>
+        /// Loads an XmlDocument for querying and returns true if signature reference, expiration, and audience validity checks pass.
+        /// </summary>
+        public bool LoadXml(string xml, string expectedAudience)
         {
             _xmlDoc = new XmlDocument
             {
@@ -52,18 +63,13 @@ namespace CoreSaml2Utils
             namespaceManager.AddNamespace("samlp", "urn:oasis:names:tc:SAML:2.0:protocol");
 
             _xmlNameSpaceManager = namespaceManager;
-        }
 
-        public void LoadXmlFromBase64(string response)
-        {
-            var enc = new UTF8Encoding();
-            var decoded = enc.GetString(Convert.FromBase64String(response));
-            LoadXml(decoded);
+            return IsValid(expectedAudience);
         }
 
         public bool IsValid(string expectedAudience)
         {
-            var nodeList = _xmlDoc.SelectNodes("//ds:Signature", _xmlNameSpaceManager);
+            var nodeList = SelectNodes("//ds:Signature");
 
             if (nodeList.Count == 0)
             {
@@ -81,13 +87,13 @@ namespace CoreSaml2Utils
 
         public string GetNameID()
         {
-            var node = _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertion}/saml:Subject/saml:NameID", _xmlNameSpaceManager);
+            var node = SelectSingleNode($"{XPaths.FirstAssertion}/saml:Subject/saml:NameID");
             return node?.InnerText;
         }
 
         public string[] GetGroupSIDs()
         {
-            var node = _xmlDoc.SelectNodes($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid']/saml:AttributeValue", _xmlNameSpaceManager);
+            var node = SelectNodes($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid']/saml:AttributeValue");
             return node
                     ?.Cast<XmlNode>()
                     .Select(x => x?.InnerText)
@@ -97,50 +103,62 @@ namespace CoreSaml2Utils
 
         public string GetEmail()
         {
-            var node = _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.email']/saml:AttributeValue", _xmlNameSpaceManager)
-                        ?? _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress']/saml:AttributeValue", _xmlNameSpaceManager);
+            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.email']/saml:AttributeValue")
+                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress']/saml:AttributeValue");
 
             return node?.InnerText;
         }
 
         public string GetFirstName()
         {
-            var node = _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='first_name']/saml:AttributeValue", _xmlNameSpaceManager)
-                        ?? _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname']/saml:AttributeValue", _xmlNameSpaceManager)
-                        ?? _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.FirstName']/saml:AttributeValue", _xmlNameSpaceManager);
+            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='first_name']/saml:AttributeValue")
+                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname']/saml:AttributeValue")
+                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.FirstName']/saml:AttributeValue");
 
             return node?.InnerText;
         }
 
         public string GetLastName()
         {
-            var node = _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='last_name']/saml:AttributeValue", _xmlNameSpaceManager)
-                        ?? _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname']/saml:AttributeValue", _xmlNameSpaceManager)
-                        ?? _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.LastName']/saml:AttributeValue", _xmlNameSpaceManager);
+            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='last_name']/saml:AttributeValue")
+                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname']/saml:AttributeValue")
+                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.LastName']/saml:AttributeValue");
 
             return node?.InnerText;
         }
 
         public string GetDepartment()
         {
-            var node = _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/department']/saml:AttributeValue", _xmlNameSpaceManager);
+            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/department']/saml:AttributeValue");
             return node?.InnerText;
         }
 
         public string GetPhone()
         {
-            var node = _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/homephone']/saml:AttributeValue", _xmlNameSpaceManager)
-                        ?? _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/telephonenumber']/saml:AttributeValue", _xmlNameSpaceManager);
+            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/homephone']/saml:AttributeValue")
+                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/telephonenumber']/saml:AttributeValue");
 
             return node?.InnerText;
         }
 
         public string GetCompany()
         {
-            var node = _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/companyname']/saml:AttributeValue", _xmlNameSpaceManager)
-                        ?? _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.CompanyName']/saml:AttributeValue", _xmlNameSpaceManager);
+            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/companyname']/saml:AttributeValue")
+                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.CompanyName']/saml:AttributeValue");
 
             return node?.InnerText;
+        }
+
+        public string Xml => _xmlDoc.OuterXml;
+
+        public XmlNode SelectSingleNode(string xPath)
+        {
+            return _xmlDoc.SelectSingleNode(xPath, _xmlNameSpaceManager);
+        }
+
+        public XmlNodeList SelectNodes(string xPath)
+        {
+            return _xmlDoc.SelectNodes(xPath, _xmlNameSpaceManager);
         }
 
         #endregion
@@ -170,7 +188,7 @@ namespace CoreSaml2Utils
             }
             else //sometimes its not the "root" doc-element that is being signed, but the "assertion" element
             {
-                var assertionNode = _xmlDoc.SelectSingleNode("/samlp:Response/saml:Assertion", _xmlNameSpaceManager) as XmlElement;
+                var assertionNode = SelectSingleNode("/samlp:Response/saml:Assertion") as XmlElement;
                 if (assertionNode == idElement)
                 {
                     return true;
@@ -183,7 +201,7 @@ namespace CoreSaml2Utils
         private bool IsExpired()
         {
             var expirationDate = DateTime.MaxValue;
-            var node = _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertion}/saml:Subject/saml:SubjectConfirmation/saml:SubjectConfirmationData", _xmlNameSpaceManager);
+            var node = SelectSingleNode($"{XPaths.FirstAssertion}/saml:Subject/saml:SubjectConfirmation/saml:SubjectConfirmationData");
             if (node?.Attributes["NotOnOrAfter"] != null)
             {
                 DateTime.TryParse(node.Attributes["NotOnOrAfter"].Value, out expirationDate);
@@ -195,7 +213,7 @@ namespace CoreSaml2Utils
                 return true;
             }
 
-            node = _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertion}/saml:Conditions", _xmlNameSpaceManager);
+            node = SelectSingleNode($"{XPaths.FirstAssertion}/saml:Conditions");
             if (node != null)
             {
                 if (node?.Attributes["NotOnOrAfter"] != null)
@@ -215,14 +233,8 @@ namespace CoreSaml2Utils
 
         private bool IsExpectedAudience(string expectedAudience)
         {
-            var node = _xmlDoc.SelectSingleNode($"{XPaths.FirstAssertion}/saml:Conditions/saml:AudienceRestriction/saml:Audience", _xmlNameSpaceManager);
+            var node = SelectSingleNode($"{XPaths.FirstAssertion}/saml:Conditions/saml:AudienceRestriction/saml:Audience");
             return node == null || node.InnerText == expectedAudience;
-        }
-
-        private static class XPaths
-        {
-            public static string FirstAssertion = "/samlp:Response/saml:Assertion[1]";
-            public static string FirstAssertionsAttributeStatement => $"{FirstAssertion}/saml:AttributeStatement";
         }
     }
 }
