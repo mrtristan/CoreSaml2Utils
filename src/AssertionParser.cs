@@ -32,20 +32,14 @@ namespace CoreSaml2Utils
             _certificate = CertificateUtilities.LoadCertificate(certificateStr);
         }
 
-        /// <summary>
-        /// Loads an XmlDocument for querying and returns true if signature reference, expiration, and audience validity checks pass.
-        /// </summary>
-        public bool LoadXmlFromBase64(string response, string expectedAudience)
+        public void LoadXmlFromBase64(string response)
         {
             var enc = new UTF8Encoding();
             var decoded = enc.GetString(Convert.FromBase64String(response));
-            return LoadXml(decoded, expectedAudience);
+            LoadXml(decoded);
         }
 
-        /// <summary>
-        /// Loads an XmlDocument for querying and returns true if signature reference, expiration, and audience validity checks pass.
-        /// </summary>
-        public bool LoadXml(string xml, string expectedAudience)
+        public void LoadXml(string xml)
         {
             _xmlDoc = new XmlDocument
             {
@@ -63,8 +57,6 @@ namespace CoreSaml2Utils
             namespaceManager.AddNamespace("samlp", "urn:oasis:names:tc:SAML:2.0:protocol");
 
             _xmlNameSpaceManager = namespaceManager;
-
-            return IsValid(expectedAudience);
         }
 
         public bool IsValid(string expectedAudience)
@@ -82,7 +74,15 @@ namespace CoreSaml2Utils
             return ValidateSignatureReference(signedXml)
                     && signedXml.CheckSignature(_certificate, true)
                     && !IsExpired()
+                    && IsSuccessfulResponse()
+                    && ResponseIssuerMatchesAssertionIssuer()
                     && IsExpectedAudience(expectedAudience);
+        }
+
+        public string GetResponseIssuer()
+        {
+            var node = SelectSingleNode("/samlp:Response/saml:Issuer");
+            return node?.InnerText;
         }
 
         public string GetNameID()
@@ -116,7 +116,7 @@ namespace CoreSaml2Utils
                         ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname']/saml:AttributeValue")
                         ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.FirstName']/saml:AttributeValue")
                         ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='FirstName']/saml:AttributeValue");
-            
+
             return node?.InnerText;
         }
 
@@ -234,10 +234,23 @@ namespace CoreSaml2Utils
             return false;
         }
 
+        private bool IsSuccessfulResponse()
+        {
+            var node = SelectSingleNode("/samlp:Response/samlp:Status/samlp:StatusCode");
+            return node?.Attributes["Value"].Value == "urn:oasis:names:tc:SAML:2.0:status:Success";
+        }
+
         private bool IsExpectedAudience(string expectedAudience)
         {
             var node = SelectSingleNode($"{XPaths.FirstAssertion}/saml:Conditions/saml:AudienceRestriction/saml:Audience");
             return node == null || node.InnerText == expectedAudience;
+        }
+
+        private bool ResponseIssuerMatchesAssertionIssuer()
+        {
+            var responseIssuer = SelectSingleNode($"{XPaths.FirstAssertion}/Issuer")?.Value;
+            var assertionIssuer = SelectSingleNode($"/samlp:Response/Issuer")?.Value;
+            return responseIssuer == assertionIssuer;
         }
     }
 }
