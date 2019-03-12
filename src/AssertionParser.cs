@@ -1,6 +1,7 @@
 ﻿using CoreSaml2Utils.Utilities;
 using System;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Cryptography.Xml;
 using System.Text;
@@ -17,19 +18,19 @@ namespace CoreSaml2Utils
 
         #region public methods
 
-        public void LoadCertFromFile(string file)
+        public void LoadIdpPublicKeyFromFile(string file)
         {
-            _certificate = CertificateUtilities.LoadCertificateFile(file);
+            _idpPublicKey = CertificateUtilities.LoadCertificateFile(file);
         }
 
-        public void LoadCertBody(byte[] certificateBytes)
+        public void LoadIdpPublicKey(byte[] certificateBytes)
         {
-            _certificate = CertificateUtilities.LoadCertificate(certificateBytes);
+            _idpPublicKey = CertificateUtilities.LoadCertificate(certificateBytes);
         }
 
-        public void LoadCertBody(string certificateStr)
+        public void LoadIdpPublicKey(string certificateStr)
         {
-            _certificate = CertificateUtilities.LoadCertificate(certificateStr);
+            _idpPublicKey = CertificateUtilities.LoadCertificate(certificateStr);
         }
 
         public void LoadXmlFromBase64(string response)
@@ -55,12 +56,58 @@ namespace CoreSaml2Utils
             namespaceManager.AddNamespace("ds", SignedXml.XmlDsigNamespaceUrl);
             namespaceManager.AddNamespace("saml", "urn:oasis:names:tc:SAML:2.0:assertion");
             namespaceManager.AddNamespace("samlp", "urn:oasis:names:tc:SAML:2.0:protocol");
+            namespaceManager.AddNamespace("e", EncryptedXml.XmlEncNamespaceUrl);
+            namespaceManager.AddNamespace("xenc", EncryptedXml.XmlEncNamespaceUrl);
 
             _xmlNameSpaceManager = namespaceManager;
         }
 
+        public void DecryptIfNeeded(X509Certificate2 spCert)
+        {
+            if (spCert == null)
+            {
+                throw new ArgumentNullException(nameof(spCert));
+            }
+
+            var responseNode = SelectSingleNode("/samlp:Response");
+            var encryptedAssertionNode = SelectSingleNode("/samlp:Response/saml:EncryptedAssertion");
+
+            if (encryptedAssertionNode != null)
+            {
+                var encryptedDataNode = SelectSingleNode("/samlp:Response/saml:EncryptedAssertion/xenc:EncryptedData");
+                var encryptionMethodAlgorithm = SelectSingleNode("/samlp:Response/saml:EncryptedAssertion/xenc:EncryptedData/xenc:EncryptionMethod")?.Attributes["Algorithm"]?.Value;
+                var encryptionMethodKeyAlgorithm = SelectSingleNode("/samlp:Response/saml:EncryptedAssertion/xenc:EncryptedData/ds:KeyInfo/e:EncryptedKey/e:EncryptionMethod")?.Attributes["Algorithm"]?.Value;
+                var cypherText = SelectSingleNode("/samlp:Response/saml:EncryptedAssertion/xenc:EncryptedData/ds:KeyInfo/e:EncryptedKey/e:CipherData/e:CipherValue")?.InnerText;
+
+                var key = Rijndael.Create(encryptionMethodAlgorithm);
+                key.Key = EncryptedXml.DecryptKey(
+                                                Convert.FromBase64String(cypherText),
+                                                (RSA)spCert.PrivateKey,
+                                                useOAEP: encryptionMethodKeyAlgorithm == EncryptedXml.XmlEncRSAOAEPUrl
+                                            );
+
+                var encryptedXml = new EncryptedXml();
+                var encryptedData = new EncryptedData();
+                encryptedData.LoadXml((XmlElement)encryptedDataNode);
+
+                var plaintext = encryptedXml.DecryptData(encryptedData, key);
+                var xmlString = Encoding.UTF8.GetString(plaintext);
+
+                var tempDoc = new XmlDocument();
+                tempDoc.LoadXml(xmlString);
+
+                var importNode = responseNode.OwnerDocument.ImportNode(tempDoc.DocumentElement, true);
+                responseNode.ReplaceChild(importNode, encryptedAssertionNode);
+            }
+        }
+
         public bool IsValid(string expectedAudience)
         {
+            if (_idpPublicKey == null)
+            {
+                throw new ArgumentNullException("Please add the idp's public key first");
+            }
+
             var nodeList = SelectNodes("//ds:Signature");
 
             if (nodeList.Count == 0)
@@ -72,7 +119,7 @@ namespace CoreSaml2Utils
             signedXml.LoadXml((XmlElement)nodeList[0]);
 
             return ValidateSignatureReference(signedXml)
-                    && signedXml.CheckSignature(_certificate, true)
+                    && signedXml.CheckSignature(_idpPublicKey, true)
                     && !IsExpired()
                     && IsSuccessfulResponse()
                     && ResponseIssuerMatchesAssertionIssuer()
@@ -167,7 +214,7 @@ namespace CoreSaml2Utils
         #endregion
 
         private XmlDocument _xmlDoc;
-        private X509Certificate2 _certificate;
+        private X509Certificate2 _idpPublicKey;
         private XmlNamespaceManager _xmlNameSpaceManager; //we need this one to run our XPath queries on the SAML XML
 
         //an XML signature can "cover" not the whole document, but only a part of it
