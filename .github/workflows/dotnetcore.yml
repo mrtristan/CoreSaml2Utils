@@ -29,8 +29,5 @@ jobs:
           cd src
           dotnet pack --no-build --configuration Release -o out
     - name: publish to nuget
-      run: |  
-          cd src
-          pwd
-          ls
-          dotnet nuget push CoreSaml2Utils.*.nupkg -k ${{ secrets.Nuget_tristan }} -s https://api.nuget.org/v3/index.json
+      run: | 
+          dotnet nuget push ./src/out/CoreSaml2Utils.*.nupkg -k ${{ secrets.Nuget_tristan }} -s https://api.nuget.org/v3/index.json
