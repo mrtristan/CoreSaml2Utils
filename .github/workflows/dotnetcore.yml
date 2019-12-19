@@ -16,14 +16,18 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 2.2.108
-    #- name: dotnet build
-    #  run: |  
-    #      cd src
-    #      dotnet build --configuration Release
+    - name: dotnet clean
+      run: |  
+          cd src
+          dotnet clean
+    - name: dotnet build
+      run: |
+          cd src
+          dotnet build --configuration Release
     - name: dotnet pack
       run: |  
           cd src
-          dotnet pack --configuration Release -o out
+          dotnet pack --no-build --configuration Release -o out
     - name: publish to nuget
       run: |  
           dotnet nuget push CoreSaml2Utils.*.nupkg -k ${{ secrets.Nuget_tristan }} -s https://api.nuget.org/v3/index.json
