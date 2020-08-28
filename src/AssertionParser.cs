@@ -145,7 +145,8 @@ namespace CoreSaml2Utils
                     ?.Cast<XmlNode>()
                     .Select(x => x?.InnerText)
                     .Where(x => x != null)
-                    .ToArray();
+                    .ToArray()
+                ?? Array.Empty<string>();
         }
 
         public string[] GetGroups()
@@ -155,7 +156,8 @@ namespace CoreSaml2Utils
                     ?.Cast<XmlNode>()
                     .Select(x => x?.InnerText)
                     .Where(x => x != null)
-                    .ToArray();
+                    .ToArray()
+                ?? Array.Empty<string>();
         }
 
         public string GetEmail()
