@@ -148,6 +148,16 @@ namespace CoreSaml2Utils
                     .ToArray();
         }
 
+        public string[] GetGroups()
+        {
+            var node = SelectNodes($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.microsoft.com/ws/2008/06/identity/claims/groups']/saml:AttributeValue");
+            return node
+                    ?.Cast<XmlNode>()
+                    .Select(x => x?.InnerText)
+                    .Where(x => x != null)
+                    .ToArray();
+        }
+
         public string GetEmail()
         {
             var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.email']/saml:AttributeValue")
