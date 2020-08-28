@@ -3,7 +3,7 @@
     <PackageId>CoreSaml2Utils</PackageId>
     <AssemblyName>CoreSaml2Utils</AssemblyName>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <VersionPrefix>1.0.0</VersionPrefix>
+    <VersionPrefix>1.0.1</VersionPrefix>
     <PackageProjectUrl>https://github.com/mrtristan/CoreSaml2Utils</PackageProjectUrl>
     <RepositoryUrl>https://github.com/mrtristan/CoreSaml2Utils.git</RepositoryUrl>
     <RepositoryBranch>master</RepositoryBranch>
