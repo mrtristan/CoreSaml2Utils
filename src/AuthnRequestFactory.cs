@@ -1,4 +1,3 @@
-using CoreSaml2Utils.Utilities;
 using System;
 using System.IO;
 using System.IO.Compression;
@@ -25,14 +24,12 @@ namespace CoreSaml2Utils
                             X509Certificate2 cert = null
                         )
         {
-            RSAPKCS1SHA256SignatureDescription.Init(); //init the SHA256 crypto provider (for needed for .NET 4.0 and lower)
-
             _issuer = issuer;
             _assertionConsumerServiceUrl = assertionConsumerServiceUrl;
             _requestDestination = requestDestination;
             _cert = cert;
 
-            _id = $"_{Guid.NewGuid().ToString()}";
+            _id = $"_{Guid.NewGuid()}";
         }
 
         //returns the URL you should redirect your users to (i.e. your SAML-provider login URL with the Base64-ed request in the querystring
@@ -52,16 +49,17 @@ namespace CoreSaml2Utils
 
             if (sign)
             {
+                if (_cert == null)
+                {
+                    throw new ArgumentNullException("Missing certificate");
+                }
+
                 urlParams = $"{urlParams}&SigAlg={Uri.EscapeDataString("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256")}";
 
-                var packageBytes = Encoding.UTF8.GetBytes(urlParams);
+                using var rsa = _cert.GetRSAPrivateKey();
+                var signature = rsa.SignData(Encoding.UTF8.GetBytes(urlParams), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
 
-                var rsaCryptoProvider = ConstructCryptoProvider();
-                var signature = rsaCryptoProvider.SignData(packageBytes, CryptoConfig.MapNameToOID("SHA256"));
-
-                var sig = Convert.ToBase64String(signature);
-
-                urlParams = $"{urlParams}&Signature={Uri.EscapeDataString(sig)}";
+                urlParams = $"{urlParams}&Signature={Uri.EscapeDataString(Convert.ToBase64String(signature))}";
             }
 
             var queryStringSeparator = samlEndpoint.Contains("?") ? "&" : "?";
@@ -76,44 +74,42 @@ namespace CoreSaml2Utils
 
         private string BuildRequestXml()
         {
-            using (var stringWriter = new StringWriter())
+            var xmlWriterSettings = new XmlWriterSettings
             {
-                var xmlWriterSettings = new XmlWriterSettings
-                {
-                    OmitXmlDeclaration = true
-                };
+                OmitXmlDeclaration = true
+            };
 
-                using (var xmlWriter = XmlWriter.Create(stringWriter, xmlWriterSettings))
-                {
-                    xmlWriter.WriteStartElement("samlp", "AuthnRequest", "urn:oasis:names:tc:SAML:2.0:protocol");
-                    xmlWriter.WriteAttributeString("ID", _id);
-                    xmlWriter.WriteAttributeString("Version", "2.0");
-                    xmlWriter.WriteAttributeString("IssueInstant", DateTime.Now.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture));
-                    xmlWriter.WriteAttributeString("ProtocolBinding", "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST");
-                    xmlWriter.WriteAttributeString("AssertionConsumerServiceURL", _assertionConsumerServiceUrl);
-                    xmlWriter.WriteAttributeString("Destination", _requestDestination);
+            using var stringWriter = new StringWriter();
+            using (var xmlWriter = XmlWriter.Create(stringWriter, xmlWriterSettings))
+            {
+                xmlWriter.WriteStartElement("samlp", "AuthnRequest", "urn:oasis:names:tc:SAML:2.0:protocol");
+                xmlWriter.WriteAttributeString("ID", _id);
+                xmlWriter.WriteAttributeString("Version", "2.0");
+                xmlWriter.WriteAttributeString("IssueInstant", DateTime.Now.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ", System.Globalization.CultureInfo.InvariantCulture));
+                xmlWriter.WriteAttributeString("ProtocolBinding", "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST");
+                xmlWriter.WriteAttributeString("AssertionConsumerServiceURL", _assertionConsumerServiceUrl);
+                xmlWriter.WriteAttributeString("Destination", _requestDestination);
 
-                    xmlWriter.WriteStartElement("saml", "Issuer", "urn:oasis:names:tc:SAML:2.0:assertion");
-                    xmlWriter.WriteString(_issuer);
-                    xmlWriter.WriteEndElement();
+                xmlWriter.WriteStartElement("saml", "Issuer", "urn:oasis:names:tc:SAML:2.0:assertion");
+                xmlWriter.WriteString(_issuer);
+                xmlWriter.WriteEndElement();
 
-                    xmlWriter.WriteStartElement("samlp", "NameIDPolicy", "urn:oasis:names:tc:SAML:2.0:protocol");
-                    xmlWriter.WriteAttributeString("Format", "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified");
-                    xmlWriter.WriteAttributeString("AllowCreate", "true");
-                    xmlWriter.WriteEndElement();
+                xmlWriter.WriteStartElement("samlp", "NameIDPolicy", "urn:oasis:names:tc:SAML:2.0:protocol");
+                xmlWriter.WriteAttributeString("Format", "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified");
+                xmlWriter.WriteAttributeString("AllowCreate", "true");
+                xmlWriter.WriteEndElement();
 
-                    /*xw.WriteStartElement("samlp", "RequestedAuthnContext", "urn:oasis:names:tc:SAML:2.0:protocol");
-					xw.WriteAttributeString("Comparison", "exact");
-					xw.WriteStartElement("saml", "AuthnContextClassRef", "urn:oasis:names:tc:SAML:2.0:assertion");
-					xw.WriteString("urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport");
-					xw.WriteEndElement();
-					xw.WriteEndElement();*/
+                /*xw.WriteStartElement("samlp", "RequestedAuthnContext", "urn:oasis:names:tc:SAML:2.0:protocol");
+                xw.WriteAttributeString("Comparison", "exact");
+                xw.WriteStartElement("saml", "AuthnContextClassRef", "urn:oasis:names:tc:SAML:2.0:assertion");
+                xw.WriteString("urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport");
+                xw.WriteEndElement();
+                xw.WriteEndElement();*/
 
-                    xmlWriter.WriteEndElement();
-                }
-
-                return stringWriter.ToString();
+                xmlWriter.WriteEndElement();
             }
+
+            return stringWriter.ToString();
         }
 
         private string Base64Encode(string input)
@@ -127,22 +123,6 @@ namespace CoreSaml2Utils
             writer.Write(input);
             writer.Close();
             return Convert.ToBase64String(memoryStream.GetBuffer(), 0, (int)memoryStream.Length, Base64FormattingOptions.None);
-        }
-
-        private RSACryptoServiceProvider ConstructCryptoProvider()
-        {
-            if (_cert == null)
-            {
-                throw new ArgumentNullException("Missing certificate");
-            }
-
-            var rsaCryptoProvider = new RSACryptoServiceProvider(new CspParameters(24 /* PROV_RSA_AES */))
-            {
-                PersistKeyInCsp = false
-            };
-            rsaCryptoProvider.ImportParameters(RSAHelper.GetParametersFromXmlString(RSAHelper.ToXmlString((RSA)_cert.PrivateKey, true)));
-
-            return rsaCryptoProvider;
         }
     }
 }

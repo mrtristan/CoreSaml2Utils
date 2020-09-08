@@ -11,11 +11,6 @@ namespace CoreSaml2Utils
 {
     public class AssertionParser
     {
-        public AssertionParser()
-        {
-            RSAPKCS1SHA256SignatureDescription.Init(); //init the SHA256 crypto provider (for needed for .NET 4.0 and lower)
-        }
-
         #region public methods
 
         public void LoadIdpPublicKeyFromFile(string file)
