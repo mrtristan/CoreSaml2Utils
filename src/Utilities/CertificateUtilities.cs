@@ -4,9 +4,9 @@ namespace CoreSaml2Utils.Utilities
 {
     public static class CertificateUtilities
     {
-        public static X509Certificate2 LoadCertificateFile(string certificateFilePath)
+        public static X509Certificate2 LoadCertificateFile(string certificateFilePath, string password = null)
         {
-            return new X509Certificate2(certificateFilePath, (string)null, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable);
+            return new X509Certificate2(certificateFilePath, password, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable);
         }
 
         public static X509Certificate2 LoadCertificate(string certificate)
@@ -14,9 +14,9 @@ namespace CoreSaml2Utils.Utilities
             return LoadCertificate(StringToByteArray(certificate));
         }
 
-        public static X509Certificate2 LoadCertificate(byte[] certificate)
+        public static X509Certificate2 LoadCertificate(byte[] certificate, string password = null)
         {
-            return new X509Certificate2(certificate, (string)null, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable);
+            return new X509Certificate2(certificate, password, X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet | X509KeyStorageFlags.Exportable);
         }
 
         private static byte[] StringToByteArray(string st)
