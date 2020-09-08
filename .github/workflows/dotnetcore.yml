@@ -22,7 +22,7 @@ jobs:
     - name: dotnet build
       run: |
           cd src
-          $branch = @("{{ env.GITHUB_REF }}" -split "/")[-1]
+          $branch = @("${{ env.GITHUB_REF }}" -split "/")[-1]
           if($branch -eq "master")
           {
             dotnet build --configuration Release
