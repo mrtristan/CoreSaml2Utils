@@ -2,6 +2,8 @@ name: .NET Core
 
 on: push
 
+# https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#using-a-specific-shell
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,11 +22,18 @@ jobs:
     - name: dotnet build
       run: |
           cd src
-          dotnet build --configuration Release
+          $branch = @("{{ env.GITHUB_REF }}" -split "/")[-1]
+          if($branch -eq "master")
+          {
+            dotnet build --configuration Release
+          }else {
+            dotnet build --configuration Release --version-suffix "${{ env.GITHUB_REF }}${{ env.GITHUB_RUN_NUMBER }}"
+          }
+      shell: pwsh
     - name: dotnet pack
       run: |  
           cd src
           dotnet pack --no-build --configuration Release -o out
-    - name: publish to nuget
-      run: | 
-          dotnet nuget push ./src/out/CoreSaml2Utils.*.nupkg -k ${{ secrets.Nuget_tristan }} -s https://api.nuget.org/v3/index.json
+    # - name: publish to nuget
+    #   run: | 
+    #       dotnet nuget push ./src/out/CoreSaml2Utils.*.nupkg -k ${{ secrets.Nuget_tristan }} -s https://api.nuget.org/v3/index.json
