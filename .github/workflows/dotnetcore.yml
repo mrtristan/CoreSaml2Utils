@@ -2,7 +2,14 @@ name: .NET Core
 
 on: push
 
+# vm contents
+# https://github.com/actions/virtual-environments/tree/main/images/linux
+
+# shell notes
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#using-a-specific-shell
+
+# default env vars:
+# https://docs.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables
 
 jobs:
   build:
@@ -26,15 +33,13 @@ jobs:
           if($branch -eq "master")
           {
             dotnet build --configuration Release
+            dotnet pack --no-build --configuration Release -o out
           }else {
             $runNumber = $env:GITHUB_RUN_NUMBER
             dotnet build --configuration Release --version-suffix "$branch$runNumber"
+            dotnet pack --no-build --configuration Release --version-suffix "$branch$runNumber" -o out
           }
       shell: pwsh
-    - name: dotnet pack
-      run: |  
-          cd src
-          dotnet pack --no-build --configuration Release -o out
     - name: publish to nuget
       run: | 
           dotnet nuget push ./src/out/CoreSaml2Utils.*.nupkg -k ${{ secrets.Nuget_tristan }} -s https://api.nuget.org/v3/index.json
