@@ -22,12 +22,13 @@ jobs:
     - name: dotnet build
       run: |
           cd src
-          $branch = @("${{ env.GITHUB_REF }}" -split "/")[-1]
+          $branch = @($env:GITHUB_REF -split "/")[-1]
           if($branch -eq "master")
           {
             dotnet build --configuration Release
           }else {
-            dotnet build --configuration Release --version-suffix "${{ env.GITHUB_REF }}${{ env.GITHUB_RUN_NUMBER }}"
+            $runNumber = $env:GITHUB_RUN_NUMBER
+            dotnet build --configuration Release --version-suffix "$branch$runNumber"
           }
       shell: pwsh
     - name: dotnet pack
