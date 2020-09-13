@@ -96,12 +96,20 @@ namespace CoreSaml2Utils
             }
         }
 
-        public bool IsValid(string expectedAudience)
+        public bool IsValid(string expectedAudience, X509Certificate2 idpCert = null)
         {
-            if (_idpPublicKey == null)
+            if (_idpPublicKey == null && idpCert == null)
             {
-                throw new ArgumentNullException("Please add the idp's public key first");
+                throw new ArgumentNullException("Please add the idp's public key first or certificate");
             }
+
+            // To force the user to load one certificate only in order to avoid confusion when IsValid returns false
+            if (_idpPublicKey != null && idpCert != null)
+            {
+                throw new ArgumentException("You cannot use LoadIdpPublicKey and pass a certificate at the same time");
+            }
+
+            X509Certificate2 cert = _idpPublicKey ?? idpCert;
 
             var nodeList = SelectNodes("//ds:Signature");
 
@@ -114,7 +122,7 @@ namespace CoreSaml2Utils
             signedXml.LoadXml((XmlElement)nodeList[0]);
 
             return ValidateSignatureReference(signedXml)
-                    && signedXml.CheckSignature(_idpPublicKey, true)
+                    && signedXml.CheckSignature(cert, true)
                     && !IsExpired()
                     && IsSuccessfulResponse()
                     && ResponseIssuerMatchesAssertionIssuer()
