@@ -13,21 +13,6 @@ namespace CoreSaml2Utils
     {
         #region public methods
 
-        public void LoadIdpPublicKeyFromFile(string file)
-        {
-            _idpPublicKey = CertificateUtilities.LoadCertificateFile(file);
-        }
-
-        public void LoadIdpPublicKey(byte[] certificateBytes)
-        {
-            _idpPublicKey = CertificateUtilities.LoadCertificate(certificateBytes);
-        }
-
-        public void LoadIdpPublicKey(string certificateStr)
-        {
-            _idpPublicKey = CertificateUtilities.LoadCertificate(certificateStr);
-        }
-
         public void LoadXmlFromBase64(string response)
         {
             var enc = new UTF8Encoding();
@@ -96,20 +81,12 @@ namespace CoreSaml2Utils
             }
         }
 
-        public bool IsValid(string expectedAudience, X509Certificate2 idpCert = null)
+        public bool IsValid(string expectedAudience, X509Certificate2 idpCert)
         {
-            if (_idpPublicKey == null && idpCert == null)
+            if (idpCert == null)
             {
-                throw new ArgumentNullException("Please add the idp's public key first or certificate");
+                throw new ArgumentNullException(nameof(idpCert));
             }
-
-            // To force the user to load one certificate only in order to avoid confusion when IsValid returns false
-            if (_idpPublicKey != null && idpCert != null)
-            {
-                throw new ArgumentException("You cannot use LoadIdpPublicKey and pass a certificate at the same time");
-            }
-
-            X509Certificate2 cert = _idpPublicKey ?? idpCert;
 
             var nodeList = SelectNodes("//ds:Signature");
 
@@ -122,7 +99,7 @@ namespace CoreSaml2Utils
             signedXml.LoadXml((XmlElement)nodeList[0]);
 
             return ValidateSignatureReference(signedXml)
-                    && signedXml.CheckSignature(cert, true)
+                    && signedXml.CheckSignature(idpCert, true)
                     && !IsExpired()
                     && IsSuccessfulResponse()
                     && ResponseIssuerMatchesAssertionIssuer()
