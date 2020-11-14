@@ -184,10 +184,15 @@ namespace CoreSaml2Utils
             return node?.InnerText;
         }
 
-        public string GetDepartment()
+        public string[] GetDepartments()
         {
-            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/department']/saml:AttributeValue");
-            return node?.InnerText;
+            var node = SelectNodes($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/department']/saml:AttributeValue");
+            return node
+                    ?.Cast<XmlNode>()
+                    .Select(x => x?.InnerText)
+                    .Where(x => x != null)
+                    .ToArray()
+                ?? Array.Empty<string>();
         }
 
         public string GetPhone()
