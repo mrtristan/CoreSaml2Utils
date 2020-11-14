@@ -120,24 +120,12 @@ namespace CoreSaml2Utils
 
         public string[] GetGroupSIDs()
         {
-            var node = SelectNodes($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid']/saml:AttributeValue");
-            return node
-                    ?.Cast<XmlNode>()
-                    .Select(x => x?.InnerText)
-                    .Where(x => x != null)
-                    .ToArray()
-                ?? Array.Empty<string>();
+            return SelectNodeValues($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid']/saml:AttributeValue");
         }
 
         public string[] GetGroups()
         {
-            var node = SelectNodes($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.microsoft.com/ws/2008/06/identity/claims/groups']/saml:AttributeValue");
-            return node
-                    ?.Cast<XmlNode>()
-                    .Select(x => x?.InnerText)
-                    .Where(x => x != null)
-                    .ToArray()
-                ?? Array.Empty<string>();
+            return SelectNodeValues($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.microsoft.com/ws/2008/06/identity/claims/groups']/saml:AttributeValue");
         }
 
         public string GetEmail()
@@ -171,13 +159,7 @@ namespace CoreSaml2Utils
 
         public string[] GetDepartments()
         {
-            var node = SelectNodes($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/department']/saml:AttributeValue");
-            return node
-                    ?.Cast<XmlNode>()
-                    .Select(x => x?.InnerText)
-                    .Where(x => x != null)
-                    .ToArray()
-                ?? Array.Empty<string>();
+            return SelectNodeValues($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/department']/saml:AttributeValue");
         }
 
         public string GetPhone()
@@ -198,14 +180,18 @@ namespace CoreSaml2Utils
 
         public string Xml => _xmlDoc.OuterXml;
 
-        public XmlNode SelectSingleNode(string xPath)
-        {
-            return _xmlDoc.SelectSingleNode(xPath, _xmlNameSpaceManager);
-        }
+        public XmlNode SelectSingleNode(string xPath) => _xmlDoc.SelectSingleNode(xPath, _xmlNameSpaceManager);
 
-        public XmlNodeList SelectNodes(string xPath)
+        public XmlNodeList SelectNodes(string xPath) => _xmlDoc.SelectNodes(xPath, _xmlNameSpaceManager);
+
+        public string[] SelectNodeValues(string xPath)
         {
-            return _xmlDoc.SelectNodes(xPath, _xmlNameSpaceManager);
+            return SelectNodes(xPath)
+                   ?.Cast<XmlNode>()
+                   .Select(x => x?.InnerText)
+                   .Where(x => x != null)
+                   .ToArray()
+                   ?? Array.Empty<string>();
         }
 
         #endregion
