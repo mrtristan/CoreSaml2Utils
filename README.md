@@ -29,12 +29,23 @@ var assertionParser = new AssertionParser();
 assertionParser.LoadXmlFromBase64(Request.Form["SAMLResponse"]);
 
 var issuer = assertionParser.GetResponseIssuer();
-assertionParser.LoadIdpPublicKey(config.CertificateBody);
 
 var cert = CertificateUtilities.LoadCertificateFile(@"your_no_password_cert.pfx");
 assertionParser.DecryptIfNeeded(cert);
 
-if (assertionParser.IsValid(expectedAudience: "https://your-issuer-url.com/saml2",))
+// You have two options to load and validate the idp certificate 
+// Option #1
+assertionParser.LoadIdpPublicKey(config.CertificateBody);
+bool isValid = assertionParser.IsValid(expectedAudience: "https://your-issuer-url.com/saml2");
+// Option #2
+// Load the idp cert certificate from a local source i.e. store
+X509Store store = new X509Store(StoreName.My, StoreLocation.LocalMachine);
+store.Open(OpenFlags.ReadOnly);
+X509Certificate2 storeCert = store.Certificates.Find(X509FindType.FindBySubjectName, _appSettings.SAML.IdpCertificateName, true)[0];
+store.Close();
+bool isValid = assertionParser.IsValid(expectedAudience: "https://your-issuer-url.com/saml2", storeCert);
+
+if (isValid)
 {
 	var authPayload = new
 	{
