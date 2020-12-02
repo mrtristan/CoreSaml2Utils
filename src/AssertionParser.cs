@@ -200,7 +200,6 @@ namespace CoreSaml2Utils
         #endregion
 
         private XmlDocument _xmlDoc;
-        private X509Certificate2 _idpPublicKey;
         private XmlNamespaceManager _xmlNameSpaceManager; //we need this one to run our XPath queries on the SAML XML
 
         //an XML signature can "cover" not the whole document, but only a part of it
