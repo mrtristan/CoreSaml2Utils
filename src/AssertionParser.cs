@@ -130,7 +130,8 @@ namespace CoreSaml2Utils
 
         public string GetEmail()
         {
-            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.email']/saml:AttributeValue")
+            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='mail']/saml:AttributeValue")
+                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.email']/saml:AttributeValue")
                         ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='EmailAddress']/saml:AttributeValue")
                         ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress']/saml:AttributeValue");
 
@@ -139,7 +140,8 @@ namespace CoreSaml2Utils
 
         public string GetFirstName()
         {
-            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='first_name']/saml:AttributeValue")
+            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='givenName']/saml:AttributeValue")
+                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='first_name']/saml:AttributeValue")
                         ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname']/saml:AttributeValue")
                         ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.FirstName']/saml:AttributeValue")
                         ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='FirstName']/saml:AttributeValue");
@@ -149,7 +151,8 @@ namespace CoreSaml2Utils
 
         public string GetLastName()
         {
-            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='last_name']/saml:AttributeValue")
+            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='sn']/saml:AttributeValue")
+                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='last_name']/saml:AttributeValue")
                         ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname']/saml:AttributeValue")
                         ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.LastName']/saml:AttributeValue")
                         ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='LastName']/saml:AttributeValue");
