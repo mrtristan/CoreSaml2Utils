@@ -1,84 +1,25 @@
 ﻿using CoreSaml2Utils.Utilities;
 using System;
+using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Cryptography.Xml;
-using System.Text;
 using System.Xml;
 
 namespace CoreSaml2Utils
 {
     public class AssertionParser
     {
-        #region public methods
+        private readonly XmlDocument _xmlDoc;
+        private readonly XmlNamespaceManager _xmlNameSpaceManager;
 
-        public void LoadXmlFromBase64(string response)
+        public AssertionParser(
+            XmlDocument xmlDoc,
+            XmlNamespaceManager xmlNamespaceManager
+        )
         {
-            var enc = new UTF8Encoding();
-            var decoded = enc.GetString(Convert.FromBase64String(response));
-            LoadXml(decoded);
-        }
-
-        public void LoadXml(string xml)
-        {
-            _xmlDoc = new XmlDocument
-            {
-                PreserveWhitespace = true,
-                XmlResolver = null
-            };
-            _xmlDoc.LoadXml(xml);
-
-            //returns namespace manager, we need one b/c MS says so... Otherwise XPath doesnt work in an XML doc with namespaces
-            //see https://stackoverflow.com/questions/7178111/why-is-xmlnamespacemanager-necessary
-
-            var namespaceManager = new XmlNamespaceManager(_xmlDoc.NameTable);
-            namespaceManager.AddNamespace("ds", SignedXml.XmlDsigNamespaceUrl);
-            namespaceManager.AddNamespace("saml", "urn:oasis:names:tc:SAML:2.0:assertion");
-            namespaceManager.AddNamespace("samlp", "urn:oasis:names:tc:SAML:2.0:protocol");
-            namespaceManager.AddNamespace("e", EncryptedXml.XmlEncNamespaceUrl);
-            namespaceManager.AddNamespace("xenc", EncryptedXml.XmlEncNamespaceUrl);
-
-            _xmlNameSpaceManager = namespaceManager;
-        }
-
-        public void DecryptIfNeeded(X509Certificate2 spCert)
-        {
-            if (spCert == null)
-            {
-                throw new ArgumentNullException(nameof(spCert));
-            }
-
-            var responseNode = SelectSingleNode("/samlp:Response");
-            var encryptedAssertionNode = SelectSingleNode("/samlp:Response/saml:EncryptedAssertion");
-
-            if (encryptedAssertionNode != null)
-            {
-                var encryptedDataNode = SelectSingleNode("/samlp:Response/saml:EncryptedAssertion/xenc:EncryptedData");
-                var encryptionMethodAlgorithm = SelectSingleNode("/samlp:Response/saml:EncryptedAssertion/xenc:EncryptedData/xenc:EncryptionMethod")?.Attributes["Algorithm"]?.Value;
-                var encryptionMethodKeyAlgorithm = SelectSingleNode("/samlp:Response/saml:EncryptedAssertion/xenc:EncryptedData/ds:KeyInfo/e:EncryptedKey/e:EncryptionMethod")?.Attributes["Algorithm"]?.Value;
-                var cypherText = SelectSingleNode("/samlp:Response/saml:EncryptedAssertion/xenc:EncryptedData/ds:KeyInfo/e:EncryptedKey/e:CipherData/e:CipherValue")?.InnerText;
-
-                var key = Rijndael.Create(encryptionMethodAlgorithm);
-                key.Key = EncryptedXml.DecryptKey(
-                                                Convert.FromBase64String(cypherText),
-                                                (RSA)spCert.PrivateKey,
-                                                useOAEP: encryptionMethodKeyAlgorithm == EncryptedXml.XmlEncRSAOAEPUrl
-                                            );
-
-                var encryptedXml = new EncryptedXml();
-                var encryptedData = new EncryptedData();
-                encryptedData.LoadXml((XmlElement)encryptedDataNode);
-
-                var plaintext = encryptedXml.DecryptData(encryptedData, key);
-                var xmlString = Encoding.UTF8.GetString(plaintext);
-
-                var tempDoc = new XmlDocument();
-                tempDoc.LoadXml(xmlString);
-
-                var importNode = responseNode.OwnerDocument.ImportNode(tempDoc.DocumentElement, true);
-                responseNode.ReplaceChild(importNode, encryptedAssertionNode);
-            }
+            _xmlDoc = xmlDoc;
+            _xmlNameSpaceManager = xmlNamespaceManager;
         }
 
         public bool IsValid(string expectedAudience, X509Certificate2 idpCert)
@@ -99,11 +40,11 @@ namespace CoreSaml2Utils
             signedXml.LoadXml((XmlElement)nodeList[0]);
 
             return ValidateSignatureReference(signedXml)
-                    && signedXml.CheckSignature(idpCert, true)
-                    && !IsExpired()
-                    && IsSuccessfulResponse()
-                    && ResponseIssuerMatchesAssertionIssuer()
-                    && IsExpectedAudience(expectedAudience);
+                   && signedXml.CheckSignature(idpCert, true)
+                   && !IsExpired()
+                   && IsSuccessfulResponse()
+                   && ResponseIssuerMatchesAssertionIssuer()
+                   && IsExpectedAudience(expectedAudience);
         }
 
         public string GetResponseIssuer()
@@ -119,88 +60,120 @@ namespace CoreSaml2Utils
         }
 
         public string[] GetGroupSIDs()
-        {
-            return SelectNodeValues($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid']/saml:AttributeValue");
-        }
+            => SelectNodeValues($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.microsoft.com/ws/2008/06/identity/claims/groupsid']/saml:AttributeValue");
 
         public string[] GetGroups()
+            => SelectNodeValues($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.microsoft.com/ws/2008/06/identity/claims/groups']/saml:AttributeValue");
+
+        public string GetEmail(string[] additionalAttributeNames = null)
+            => SelectFirstMatchingAttributeValue(
+                                                 new List<string>
+                                                     {
+                                                         "mail",
+                                                         "User.email",
+                                                         "EmailAddress",
+                                                         "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress",
+                                                     }
+                                                     .Concat(additionalAttributeNames ?? [])
+                                                );
+
+        public string GetFirstName(string[] additionalAttributeNames = null)
+            => SelectFirstMatchingAttributeValue(
+                                                 new List<string>
+                                                     {
+                                                         "givenName",
+                                                         "first_name",
+                                                         "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname",
+                                                         "User.FirstName",
+                                                         "FirstName"
+                                                     }
+                                                     .Concat(additionalAttributeNames ?? [])
+                                                );
+
+        public string GetLastName(string[] additionalAttributeNames = null)
+            => SelectFirstMatchingAttributeValue(
+                                                 new List<string>
+                                                     {
+                                                         "sn",
+                                                         "last_name",
+                                                         "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname",
+                                                         "User.LastName",
+                                                         "LastName",
+                                                     }
+                                                     .Concat(additionalAttributeNames ?? [])
+                                                );
+
+        public string[] GetDepartments(string[] additionalAttributeNames = null)
+            => SelectNodeValues($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/department']/saml:AttributeValue");
+
+        public string GetPhone(string[] additionalAttributeNames = null)
+            => SelectFirstMatchingAttributeValue(
+                                                 new List<string>
+                                                     {
+                                                         "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/homephone",
+                                                         "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/telephonenumber"
+                                                     }
+                                                     .Concat(additionalAttributeNames ?? [])
+                                                );
+
+        public string GetCompany(string[] additionalAttributeNames = null)
+            => SelectFirstMatchingAttributeValue(
+                                                 new List<string>
+                                                     {
+                                                         "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/companyname",
+                                                         "User.CompanyName"
+                                                     }
+                                                     .Concat(additionalAttributeNames ?? [])
+                                                );
+
+        public string SelectFirstMatchingAttributeValue(IEnumerable<string> attributeNames)
         {
-            return SelectNodeValues($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.microsoft.com/ws/2008/06/identity/claims/groups']/saml:AttributeValue");
-        }
+            foreach (var attributeName in attributeNames.Distinct())
+            {
+                var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='{attributeName}']/saml:AttributeValue");
+                if (node != null)
+                {
+                    return node.InnerText;
+                }
+            }
 
-        public string GetEmail()
-        {
-            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='mail']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.email']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='EmailAddress']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress']/saml:AttributeValue");
-
-            return node?.InnerText;
-        }
-
-        public string GetFirstName()
-        {
-            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='givenName']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='first_name']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/givenname']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.FirstName']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='FirstName']/saml:AttributeValue");
-
-            return node?.InnerText;
-        }
-
-        public string GetLastName()
-        {
-            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='sn']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='last_name']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/surname']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.LastName']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='LastName']/saml:AttributeValue");
-
-            return node?.InnerText;
-        }
-
-        public string[] GetDepartments()
-        {
-            return SelectNodeValues($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/department']/saml:AttributeValue");
-        }
-
-        public string GetPhone()
-        {
-            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/homephone']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/telephonenumber']/saml:AttributeValue");
-
-            return node?.InnerText;
-        }
-
-        public string GetCompany()
-        {
-            var node = SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='http://schemas.xmlsoap.org/ws/2005/05/identity/claims/companyname']/saml:AttributeValue")
-                        ?? SelectSingleNode($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute[@Name='User.CompanyName']/saml:AttributeValue");
-
-            return node?.InnerText;
+            return null;
         }
 
         public string Xml => _xmlDoc.OuterXml;
 
-        public XmlNode SelectSingleNode(string xPath) => _xmlDoc.SelectSingleNode(xPath, _xmlNameSpaceManager);
+        public XmlNode SelectSingleNode(string xPath)
+            => _xmlDoc.SelectSingleNode(xPath, _xmlNameSpaceManager);
 
-        public XmlNodeList SelectNodes(string xPath) => _xmlDoc.SelectNodes(xPath, _xmlNameSpaceManager);
+        public XmlNodeList SelectNodes(string xPath)
+            => _xmlDoc.SelectNodes(xPath, _xmlNameSpaceManager);
 
         public string[] SelectNodeValues(string xPath)
-        {
-            return SelectNodes(xPath)
-                   ?.Cast<XmlNode>()
-                   .Select(x => x?.InnerText)
-                   .Where(x => x != null)
-                   .ToArray()
-                   ?? Array.Empty<string>();
-        }
+            => SelectNodes(xPath)
+               ?.Cast<XmlNode>()
+               .Select(x => x?.InnerText)
+               .Where(x => x != null)
+               .ToArray()
+               ?? [];
 
-        #endregion
-
-        private XmlDocument _xmlDoc;
-        private XmlNamespaceManager _xmlNameSpaceManager; //we need this one to run our XPath queries on the SAML XML
+        public Dictionary<string, string[]> GetAssertionAttributes()
+            => _xmlDoc.SelectNodes($"{XPaths.FirstAssertionsAttributeStatement}/saml:Attribute", _xmlNameSpaceManager)
+                      ?.Cast<XmlNode>()
+                      .Select(x => new
+                                   {
+                                       Name = x.Attributes["Name"].Value,
+                                       Values = x.SelectNodes("saml:AttributeValue", _xmlNameSpaceManager)
+                                                 ?.Cast<XmlNode>()
+                                                 .Select(y => y.InnerText)
+                                                 .ToArray()
+                                   })
+                      .GroupBy(x => x.Name)
+                      .ToDictionary(
+                                    x => x.Key,
+                                    x => x.SelectMany(y => y.Values)
+                                          .Distinct()
+                                          .ToArray()
+                                   );
 
         //an XML signature can "cover" not the whole document, but only a part of it
         //.NET's built in "CheckSignature" does not cover this case, it will validate to true.
