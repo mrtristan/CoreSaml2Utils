@@ -42,4 +42,4 @@ jobs:
       shell: pwsh
     - name: publish to nuget
       run: | 
-          dotnet nuget push ./src/out/CoreSaml2Utils.*.nupkg -k ${{ secrets.Nuget_tristan }} -s https://api.nuget.org/v3/index.json
+          dotnet nuget push ./src/out/CoreSaml2Utils.*.symbols.nupkg -k ${{ secrets.Nuget_tristan }} -s https://api.nuget.org/v3/index.json
