@@ -19,9 +19,9 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1.7.2
+      uses: actions/setup-dotnet@v4.0.0
       with:
-        dotnet-version: 2.1.809
+        dotnet-version: 8.0.x
     - name: dotnet clean
       run: |  
           cd src
