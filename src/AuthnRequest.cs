@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using System.Security.Cryptography.X509Certificates;
 using System.Xml;
@@ -31,24 +30,26 @@ namespace CoreSaml2Utils
                                     };
 
             using var stringWriter = new StringWriter();
-            using var xmlWriter = XmlWriter.Create(stringWriter, xmlWriterSettings);
-            xmlWriter.WriteStartElement("samlp", "AuthnRequest", "urn:oasis:names:tc:SAML:2.0:protocol");
-            xmlWriter.WriteAttributeString("ID", $"_{Guid.NewGuid()}");
-            xmlWriter.WriteAttributeString("Version", "2.0");
-            xmlWriter.WriteAttributeString("IssueInstant", BuildIssueInstant());
-            xmlWriter.WriteAttributeString("ProtocolBinding", "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST");
-            xmlWriter.WriteAttributeString("AssertionConsumerServiceURL", _assertionConsumerServiceUrl);
-            xmlWriter.WriteAttributeString("Destination", RequestDestination);
+            using (var xmlWriter = XmlWriter.Create(stringWriter, xmlWriterSettings))
+            {
+                xmlWriter.WriteStartElement("samlp", "AuthnRequest", "urn:oasis:names:tc:SAML:2.0:protocol");
+                xmlWriter.WriteAttributeString("ID", Id);
+                xmlWriter.WriteAttributeString("Version", "2.0");
+                xmlWriter.WriteAttributeString("IssueInstant", BuildIssueInstant());
+                xmlWriter.WriteAttributeString("ProtocolBinding", "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST");
+                xmlWriter.WriteAttributeString("AssertionConsumerServiceURL", _assertionConsumerServiceUrl);
+                xmlWriter.WriteAttributeString("Destination", RequestDestination);
 
-            xmlWriter.WriteStartElement("saml", "Issuer", "urn:oasis:names:tc:SAML:2.0:assertion");
-            xmlWriter.WriteString(Issuer);
-            xmlWriter.WriteEndElement();
+                xmlWriter.WriteStartElement("saml", "Issuer", "urn:oasis:names:tc:SAML:2.0:assertion");
+                xmlWriter.WriteString(Issuer);
+                xmlWriter.WriteEndElement();
 
-            xmlWriter.WriteStartElement("samlp", "NameIDPolicy", "urn:oasis:names:tc:SAML:2.0:protocol");
-            xmlWriter.WriteAttributeString("Format", "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified");
-            xmlWriter.WriteAttributeString("AllowCreate", "true");
-            xmlWriter.WriteEndElement();
-            xmlWriter.WriteEndElement();
+                xmlWriter.WriteStartElement("samlp", "NameIDPolicy", "urn:oasis:names:tc:SAML:2.0:protocol");
+                xmlWriter.WriteAttributeString("Format", "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified");
+                xmlWriter.WriteAttributeString("AllowCreate", "true");
+                xmlWriter.WriteEndElement();
+                xmlWriter.WriteEndElement();
+            }
 
             return stringWriter.ToString();
         }

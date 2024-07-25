@@ -3,6 +3,7 @@
 
 # CoreSaml2Utils
 > forked from https://github.com/jitbit/AspNetSaml
+> some snippets leveraged from https://github.com/optiklab/SAML-integration-utilities
 
 Started from the Jitbit repo but had a need for more advanced concepts like decryption and signing so wound up refactoring a bunch as I went. Became too much of a deviation to PR at this point. Published to nuget, linked above.
 

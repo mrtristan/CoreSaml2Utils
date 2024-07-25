@@ -4,11 +4,14 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Xml;
+using CoreSaml2Utils.Utilities;
 
 namespace CoreSaml2Utils
 {
     public abstract class RequestBase
     {
+        protected readonly string Id;
         protected readonly string Issuer;
         protected readonly string RequestDestination;
         private readonly X509Certificate2 _cert;
@@ -22,6 +25,7 @@ namespace CoreSaml2Utils
             Issuer = issuer;
             RequestDestination = requestDestination;
             _cert = cert;
+            Id = $"_{Guid.NewGuid()}";
         }
 
         //returns the URL you should redirect your users to (i.e. your SAML-provider login URL with the Base64-ed request in the querystring
@@ -57,6 +61,25 @@ namespace CoreSaml2Utils
 
             var queryStringSeparator = samlEndpoint.Contains("?") ? "&" : "?";
             return $"{samlEndpoint}{queryStringSeparator}{urlParams}";
+        }
+
+        public string BuildRequestBody(bool sign)
+        {
+            var xml = BuildRequestXml();
+
+            var xmlDocument = new XmlDocument();
+            xmlDocument.LoadXml(xml);
+
+            if (sign)
+            {
+                var signedXml = SigningHelper.SignXml(xmlDocument, _cert, "ID", Id);
+                xmlDocument.DocumentElement?.InsertBefore(
+                                                          signedXml.GetXml(),
+                                                          xmlDocument.DocumentElement.ChildNodes[0]
+                                                         );
+            }
+
+            return xmlDocument.OuterXml;
         }
 
         protected abstract string BuildRequestXml();
