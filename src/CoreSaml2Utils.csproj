@@ -3,7 +3,7 @@
     <PackageId>CoreSaml2Utils</PackageId>
     <AssemblyName>CoreSaml2Utils</AssemblyName>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <VersionPrefix>1.1.1</VersionPrefix>
+    <VersionPrefix>1.2.0</VersionPrefix>
     <!-- todo: pass in env var build number as part of version -->
     <!-- <VersionSuffix>$(VersionSuffix)</VersionSuffix> -->
     <PackageProjectUrl>https://github.com/mrtristan/CoreSaml2Utils</PackageProjectUrl>
