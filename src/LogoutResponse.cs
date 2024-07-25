@@ -46,7 +46,11 @@ namespace CoreSaml2Utils
                 xmlWriter.WriteEndElement();
 
                 xmlWriter.WriteStartElement("saml", "Status", "urn:oasis:names:tc:SAML:2.0:assertion");
-                xmlWriter.WriteString(_status);
+                
+                xmlWriter.WriteStartElement("saml", "StatusCode", "urn:oasis:names:tc:SAML:2.0:assertion");
+                xmlWriter.WriteAttributeString("Value", _status);
+                xmlWriter.WriteEndElement();
+                
                 xmlWriter.WriteEndElement();
 
                 xmlWriter.WriteEndElement();
