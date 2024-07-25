@@ -26,6 +26,7 @@ namespace CoreSaml2Utils
         {
             AuthnRequest,
             LogoutRequest,
+            Response,
             Unknown
         }
 
@@ -34,6 +35,7 @@ namespace CoreSaml2Utils
                {
                    "AuthnRequest" => RequestType.AuthnRequest,
                    "LogoutRequest" => RequestType.LogoutRequest,
+                   "Response" => RequestType.Response,
                    _ => RequestType.Unknown
                };
 
