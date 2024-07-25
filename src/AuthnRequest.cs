@@ -7,12 +7,14 @@ namespace CoreSaml2Utils
     public class AuthnRequest : RequestBase
     {
         private readonly string _assertionConsumerServiceUrl;
+        private readonly bool _forceAuthn;
 
         public AuthnRequest(
             string issuer,
             string assertionConsumerServiceUrl,
             string requestDestination,
-            X509Certificate2 cert = null
+            X509Certificate2 cert = null,
+            bool forceAuthn = false
         ) : base(
                  issuer,
                  requestDestination,
@@ -20,6 +22,7 @@ namespace CoreSaml2Utils
                 )
         {
             _assertionConsumerServiceUrl = assertionConsumerServiceUrl;
+            _forceAuthn = forceAuthn;
         }
 
         protected override string BuildRequestXml()
@@ -38,6 +41,11 @@ namespace CoreSaml2Utils
                 xmlWriter.WriteAttributeString("IssueInstant", BuildIssueInstant());
                 xmlWriter.WriteAttributeString("ProtocolBinding", "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST");
                 xmlWriter.WriteAttributeString("AssertionConsumerServiceURL", _assertionConsumerServiceUrl);
+                if (_forceAuthn)
+                {
+                    xmlWriter.WriteAttributeString("ForceAuthn", "true");
+                }
+
                 xmlWriter.WriteAttributeString("Destination", RequestDestination);
 
                 xmlWriter.WriteStartElement("saml", "Issuer", "urn:oasis:names:tc:SAML:2.0:assertion");
