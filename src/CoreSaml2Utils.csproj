@@ -3,7 +3,9 @@
     <PackageId>CoreSaml2Utils</PackageId>
     <AssemblyName>CoreSaml2Utils</AssemblyName>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <VersionPrefix>1.1.1</VersionPrefix>
+    <VersionPrefix>1.2.0</VersionPrefix>
+    <!-- todo: pass in env var build number as part of version -->
+    <!-- <VersionSuffix>$(VersionSuffix)</VersionSuffix> -->
     <PackageProjectUrl>https://github.com/mrtristan/CoreSaml2Utils</PackageProjectUrl>
     <RepositoryUrl>https://github.com/mrtristan/CoreSaml2Utils.git</RepositoryUrl>
     <RepositoryBranch>master</RepositoryBranch>
@@ -19,7 +21,7 @@
     <LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="4.7.1" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="8.0.1" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>

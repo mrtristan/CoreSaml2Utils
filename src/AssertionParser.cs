@@ -22,6 +22,23 @@ namespace CoreSaml2Utils
             _xmlNameSpaceManager = xmlNamespaceManager;
         }
 
+        public enum RequestType
+        {
+            AuthnRequest,
+            LogoutRequest,
+            Response,
+            Unknown
+        }
+
+        public RequestType ResolveRequestType()
+            => _xmlDoc.DocumentElement?.LocalName switch
+               {
+                   "AuthnRequest" => RequestType.AuthnRequest,
+                   "LogoutRequest" => RequestType.LogoutRequest,
+                   "Response" => RequestType.Response,
+                   _ => RequestType.Unknown
+               };
+
         public bool IsValid(string expectedAudience, X509Certificate2 idpCert)
         {
             if (idpCert == null)
@@ -52,6 +69,9 @@ namespace CoreSaml2Utils
             var node = SelectSingleNode("/samlp:Response/saml:Issuer");
             return node?.InnerText;
         }
+
+        public string GetRequestId()
+            => _xmlDoc.DocumentElement!.Attributes["ID"]?.Value;
 
         public string GetNameID()
         {
